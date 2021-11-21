@@ -1,125 +1,96 @@
-use winit::{dpi::PhysicalSize, event::WindowEvent, window::Window};
+use winit::{
+    event::*,
+    event_loop::{ControlFlow, EventLoop},
+    window::{Window, WindowBuilder},
+};
 
-#[derive(Debug, Clone, Copy)]
-pub struct Dimensions {
-    pub width: u32,
-    pub height: u32,
-}
+use crate::renderer::{Dimensions, Renderer};
 
-impl From<PhysicalSize<u32>> for Dimensions {
-    fn from(s: PhysicalSize<u32>) -> Self {
-        Dimensions {
-            width: s.width,
-            height: s.height,
-        }
-    }
+pub trait AppState {
+    fn input(&mut self, event: &WindowEvent) -> bool;
+    fn update(&mut self);
+    fn render(&mut self, renderer: &Renderer) -> Result<(), wgpu::SurfaceError>;
 }
 
 pub struct App {
-    pub size: Dimensions,
-    surface: wgpu::Surface,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    config: wgpu::SurfaceConfiguration,
+    window: Window,
+    renderer: Renderer,
+    event_loop: EventLoop<()>,
 }
 
 impl App {
-    // Creating some of the wgpu types requires async code
-    pub async fn new(window: &Window, size: Dimensions) -> Self {
-        // The instance is a handle to our GPU
-        // Backends::all => Vulkan + Metal + DX12 + Browser WebGPU
-        let instance = wgpu::Instance::new(wgpu::Backends::all());
-        let surface = unsafe { instance.create_surface(window) };
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::default(),
-                compatible_surface: Some(&surface),
-                force_fallback_adapter: false,
-            })
-            .await
-            .unwrap();
+    pub async fn new() -> Self {
+        env_logger::init();
+        let event_loop = EventLoop::new();
+        let window = WindowBuilder::new().build(&event_loop).unwrap();
+        let size = window.inner_size();
 
-        let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    features: wgpu::Features::empty(),
-                    limits: wgpu::Limits::default(),
-                    label: None,
-                },
-                None, // Trace path
-            )
-            .await
-            .unwrap();
-
-        let config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface.get_preferred_format(&adapter).unwrap(),
-            width: size.width,
-            height: size.height,
-            present_mode: wgpu::PresentMode::Fifo,
-        };
-        surface.configure(&device, &config);
+        let renderer = Renderer::new(
+            &window,
+            Dimensions {
+                width: size.width,
+                height: size.height,
+            },
+        )
+        .await;
 
         Self {
-            surface,
-            device,
-            queue,
-            config,
-            size,
+            window,
+            renderer,
+            event_loop,
         }
     }
+}
 
-    pub fn resize(&mut self, new_size: Dimensions) {
-        if new_size.width > 0 && new_size.height > 0 {
-            self.size = new_size;
-            self.config.width = self.size.width;
-            self.config.height = self.size.height;
-            self.surface.configure(&self.device, &self.config);
-        }
-    }
+pub fn run<S: AppState + 'static>(mut app: App, mut state: S) {
+    app.event_loop
+        .run(move |event, _, control_flow| match event {
+            Event::WindowEvent {
+                ref event,
+                window_id,
+            } if window_id == app.window.id() => {
+                if !state.input(event) {
+                    match event {
+                        WindowEvent::CloseRequested
+                        | WindowEvent::KeyboardInput {
+                            input:
+                                KeyboardInput {
+                                    state: ElementState::Pressed,
+                                    virtual_keycode: Some(VirtualKeyCode::Escape),
+                                    ..
+                                },
+                            ..
+                        } => *control_flow = ControlFlow::Exit,
 
-    pub fn input(&mut self, event: &WindowEvent) -> bool {
-        false
-    }
+                        WindowEvent::Resized(physical_size) => {
+                            app.renderer.resize(Dimensions::from(*physical_size))
+                        }
+                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                            // new_inner_size is &&mut so we have to dereference it twice
+                            app.renderer.resize(Dimensions::from(**new_inner_size));
+                        }
+                        _ => {}
+                    }
+                }
+            }
 
-    pub fn update(&mut self) {}
-
-    pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        let output = self.surface.get_current_texture()?;
-        let view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
-            });
-
-        {
-            let _render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Render Pass"),
-                color_attachments: &[wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
-                            a: 1.0,
-                        }),
-                        store: true,
-                    },
-                }],
-                depth_stencil_attachment: None,
-            });
-        }
-
-        // submit will accept anything that implements IntoIter
-        self.queue.submit(std::iter::once(encoder.finish()));
-        output.present();
-
-        Ok(())
-    }
+            Event::RedrawRequested(_) => {
+                state.update();
+                match state.render(&app.renderer) {
+                    Ok(_) => {}
+                    // Reconfigure the surface if lost
+                    Err(wgpu::SurfaceError::Lost) => app.renderer.resize(app.renderer.size),
+                    // The system is out of memory, we should probably quit
+                    Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+                    // All other errors (Outdated, Timeout) should be resolved by the next frame
+                    Err(e) => eprintln!("{:?}", e),
+                }
+            }
+            Event::MainEventsCleared => {
+                // RedrawRequested will only trigger once, unless we manually
+                // request it.
+                app.window.request_redraw();
+            }
+            _ => {}
+        });
 }
