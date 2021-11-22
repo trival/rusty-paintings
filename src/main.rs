@@ -21,7 +21,7 @@ impl State {
 }
 
 impl AppState for State {
-    fn input(&mut self, event: &winit::event::WindowEvent) -> bool {
+    fn input(&mut self, _event: &winit::event::WindowEvent) -> bool {
         false
     }
 
