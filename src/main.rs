@@ -2,6 +2,7 @@ use paintings::{
     app::{run, App, AppState},
     renderer::Layer,
 };
+use winit::window::Window;
 
 struct State {
     layer: Layer,
@@ -10,7 +11,7 @@ struct State {
 impl State {
     fn new() -> Self {
         State {
-            layer: Layer::new(Some(wgpu::Color {
+            layer: Layer::new().with_clear_color(Some(wgpu::Color {
                 r: 0.1,
                 g: 0.2,
                 b: 0.3,
@@ -21,11 +22,11 @@ impl State {
 }
 
 impl AppState for State {
-    fn input(&mut self, _event: &winit::event::WindowEvent) -> bool {
+    fn input(&mut self, _event: &winit::event::WindowEvent, _window: &Window) -> bool {
         false
     }
 
-    fn update(&mut self) {}
+    fn update(&mut self, _window: &Window) {}
 
     fn render(
         &mut self,

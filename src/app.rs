@@ -4,17 +4,17 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-use crate::renderer::{Dimensions, Renderer};
+use crate::renderer::Renderer;
 
 pub trait AppState {
-    fn input(&mut self, event: &WindowEvent) -> bool;
-    fn update(&mut self);
+    fn input(&mut self, event: &WindowEvent, window: &Window) -> bool;
+    fn update(&mut self, window: &Window);
     fn render(&mut self, renderer: &Renderer) -> Result<(), wgpu::SurfaceError>;
 }
 
 pub struct App {
-    window: Window,
-    renderer: Renderer,
+    pub window: Window,
+    pub renderer: Renderer,
     event_loop: EventLoop<()>,
 }
 
@@ -23,16 +23,8 @@ impl App {
         env_logger::init();
         let event_loop = EventLoop::new();
         let window = WindowBuilder::new().build(&event_loop).unwrap();
-        let size = window.inner_size();
 
-        let renderer = Renderer::new(
-            &window,
-            Dimensions {
-                width: size.width,
-                height: size.height,
-            },
-        )
-        .await;
+        let renderer = Renderer::new(&window).await;
 
         Self {
             window,
@@ -49,7 +41,7 @@ pub fn run<S: AppState + 'static>(mut app: App, mut state: S) {
                 ref event,
                 window_id,
             } if window_id == app.window.id() => {
-                if !state.input(event) {
+                if !state.input(event, &app.window) {
                     match event {
                         WindowEvent::CloseRequested
                         | WindowEvent::KeyboardInput {
@@ -62,12 +54,10 @@ pub fn run<S: AppState + 'static>(mut app: App, mut state: S) {
                             ..
                         } => *control_flow = ControlFlow::Exit,
 
-                        WindowEvent::Resized(physical_size) => {
-                            app.renderer.resize(Dimensions::from(*physical_size))
-                        }
-                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                        WindowEvent::Resized(_physical_size) => app.renderer.resize(&app.window),
+                        WindowEvent::ScaleFactorChanged { .. } => {
                             // new_inner_size is &&mut so we have to dereference it twice
-                            app.renderer.resize(Dimensions::from(**new_inner_size));
+                            app.renderer.resize(&app.window);
                         }
                         _ => {}
                     }
@@ -75,11 +65,11 @@ pub fn run<S: AppState + 'static>(mut app: App, mut state: S) {
             }
 
             Event::RedrawRequested(_) => {
-                state.update();
+                state.update(&app.window);
                 match state.render(&app.renderer) {
                     Ok(_) => {}
                     // Reconfigure the surface if lost
-                    Err(wgpu::SurfaceError::Lost) => app.renderer.resize(app.renderer.size),
+                    Err(wgpu::SurfaceError::Lost) => app.renderer.resize(&app.window),
                     // The system is out of memory, we should probably quit
                     Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                     // All other errors (Outdated, Timeout) should be resolved by the next frame

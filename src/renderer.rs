@@ -1,23 +1,8 @@
 use wgpu::CommandEncoder;
 use winit::{dpi::PhysicalSize, window::Window};
 
-#[derive(Debug, Clone, Copy)]
-pub struct Dimensions {
-    pub width: u32,
-    pub height: u32,
-}
-
-impl From<PhysicalSize<u32>> for Dimensions {
-    fn from(s: PhysicalSize<u32>) -> Self {
-        Dimensions {
-            width: s.width,
-            height: s.height,
-        }
-    }
-}
-
 pub struct Renderer {
-    pub size: Dimensions,
+    pub size: PhysicalSize<u32>,
     pub surface: wgpu::Surface,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -26,7 +11,7 @@ pub struct Renderer {
 
 impl Renderer {
     // Creating some of the wgpu types requires async code
-    pub async fn new(window: &Window, size: Dimensions) -> Self {
+    pub async fn new(window: &Window) -> Self {
         // The instance is a handle to our GPU
         // Backends::all => Vulkan + Metal + DX12 + Browser WebGPU
         let instance = wgpu::Instance::new(wgpu::Backends::all());
@@ -52,6 +37,8 @@ impl Renderer {
             .await
             .unwrap();
 
+        let size = window.inner_size();
+
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface.get_preferred_format(&adapter).unwrap(),
@@ -70,7 +57,8 @@ impl Renderer {
         }
     }
 
-    pub fn resize(&mut self, new_size: Dimensions) {
+    pub fn resize(&mut self, window: &Window) {
+        let new_size = window.inner_size();
         if new_size.width > 0 && new_size.height > 0 {
             self.size = new_size;
             self.config.width = self.size.width;
@@ -87,13 +75,24 @@ impl Renderer {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct Layer {
     clear_color: Option<wgpu::Color>,
 }
 
 impl Layer {
-    pub fn new(clear_color: Option<wgpu::Color>) -> Self {
-        Layer { clear_color }
+    pub fn new() -> Self {
+        Layer { clear_color: None }
+    }
+
+    pub fn with_clear_color(mut self, clear_color: Option<wgpu::Color>) -> Self {
+        self.clear_color = clear_color;
+        self
+    }
+
+    pub fn set_clear_color(&mut self, clear_color: Option<wgpu::Color>) -> &Self {
+        self.clear_color = clear_color;
+        self
     }
 
     pub fn render(&mut self, renderer: &Renderer) -> Result<(), wgpu::SurfaceError> {
