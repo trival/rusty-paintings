@@ -6,10 +6,15 @@ use winit::{
 
 use crate::renderer::Renderer;
 
-pub trait AppState {
+pub trait AppState: Default + Copy {
     fn input(&mut self, event: &WindowEvent, window: &Window) -> bool;
     fn update(&mut self, window: &Window);
-    fn render(&mut self, renderer: &Renderer) -> Result<(), wgpu::SurfaceError>;
+}
+
+pub trait AppView<State: AppState> {
+    fn init(state: State) -> Self;
+    fn resize(&mut self, window: &Window);
+    fn render(&mut self, renderer: &Renderer, state: &State) -> Result<(), wgpu::SurfaceError>;
 }
 
 pub struct App {
@@ -19,10 +24,10 @@ pub struct App {
 }
 
 impl App {
-    pub async fn new() -> Self {
+    pub async fn new(window_builder: WindowBuilder) -> Self {
         env_logger::init();
         let event_loop = EventLoop::new();
-        let window = WindowBuilder::new().build(&event_loop).unwrap();
+        let window = window_builder.build(&event_loop).unwrap();
 
         let renderer = Renderer::new(&window).await;
 
@@ -34,7 +39,9 @@ impl App {
     }
 }
 
-pub fn run<S: AppState + 'static>(mut app: App, mut state: S) {
+pub fn run<S: AppState + 'static, V: AppView<S> + 'static>(mut app: App) {
+    let mut state = S::default();
+    let mut view = V::init(state);
     app.event_loop
         .run(move |event, _, control_flow| match event {
             Event::WindowEvent {
@@ -66,7 +73,7 @@ pub fn run<S: AppState + 'static>(mut app: App, mut state: S) {
 
             Event::RedrawRequested(_) => {
                 state.update(&app.window);
-                match state.render(&app.renderer) {
+                match view.render(&app.renderer, &state) {
                     Ok(_) => {}
                     // Reconfigure the surface if lost
                     Err(wgpu::SurfaceError::Lost) => app.renderer.resize(&app.window),

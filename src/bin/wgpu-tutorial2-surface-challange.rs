@@ -1,17 +1,18 @@
 use paintings::{
-    app::{run, App, AppState},
+    app::{run, App, AppState, AppView},
     renderer::Layer,
 };
-use winit::window::Window;
+use winit::window::{Window, WindowBuilder};
 
+#[derive(Clone, Copy)]
 struct State {
-    layer: Layer,
+    color: wgpu::Color,
 }
 
-impl State {
-    fn new() -> Self {
-        State {
-            layer: Layer::new().with_clear_color(Some(wgpu::Color::default())),
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            color: wgpu::Color::default(),
         }
     }
 }
@@ -20,11 +21,11 @@ impl AppState for State {
     fn input(&mut self, event: &winit::event::WindowEvent, window: &Window) -> bool {
         if let winit::event::WindowEvent::CursorMoved { position, .. } = event {
             let s = window.inner_size();
-            self.layer.set_clear_color(Some(wgpu::Color {
+            self.color = wgpu::Color {
                 r: position.x / s.width as f64,
                 g: position.y / s.height as f64,
                 ..Default::default()
-            }));
+            };
             // println!("cursor position: {:?}", position);
             // println!("Window size: {:?}", s);
         }
@@ -33,17 +34,32 @@ impl AppState for State {
     }
 
     fn update(&mut self, _window: &Window) {}
+}
+
+struct View {
+    layer: Layer,
+}
+
+impl AppView<State> for View {
+    fn init(_state: State) -> Self {
+        Self {
+            layer: Layer::new(),
+        }
+    }
+
+    fn resize(&mut self, _window: &Window) {}
 
     fn render(
         &mut self,
         renderer: &paintings::renderer::Renderer,
+        state: &State,
     ) -> Result<(), wgpu::SurfaceError> {
+        self.layer.set_clear_color(Some(state.color));
         self.layer.render(renderer)
     }
 }
 
 fn main() {
-    let app = pollster::block_on(App::new());
-    let state = State::new();
-    run(app, state);
+    let app = pollster::block_on(App::new(WindowBuilder::new()));
+    run::<State, View>(app);
 }
