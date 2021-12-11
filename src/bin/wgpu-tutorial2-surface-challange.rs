@@ -41,7 +41,7 @@ struct View {
 }
 
 impl AppView<State> for View {
-    fn init(_state: State) -> Self {
+    fn init(_state: &State) -> Self {
         Self {
             layer: Layer::new(),
         }
@@ -55,7 +55,7 @@ impl AppView<State> for View {
         state: &State,
     ) -> Result<(), wgpu::SurfaceError> {
         self.layer.set_clear_color(Some(state.color));
-        self.layer.render(renderer)
+        self.layer.render(renderer, &[])
     }
 }
 

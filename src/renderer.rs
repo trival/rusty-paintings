@@ -75,6 +75,89 @@ impl Renderer {
     }
 }
 
+pub struct Shade {
+    shader: wgpu::ShaderModule,
+}
+
+impl Shade {
+    fn new(renderer: &Renderer, shader_source: &'static str) -> Self {
+        Self {
+            shader: renderer
+                .device
+                .create_shader_module(&wgpu::ShaderModuleDescriptor {
+                    label: Some("Shader"),
+                    source: wgpu::ShaderSource::Wgsl(shader_source.into()),
+                }),
+        }
+    }
+}
+
+pub struct Form {
+    item_count: u32,
+}
+
+pub struct Sketch {
+    pipeline: wgpu::RenderPipeline,
+    vertex_count: u32,
+}
+
+impl Sketch {
+    fn new(renderer: &Renderer, shade: &Shade, form: &Form) -> Self {
+        let render_pipeline_layout =
+            renderer
+                .device
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Render Pipeline Layout"),
+                    bind_group_layouts: &[],
+                    push_constant_ranges: &[],
+                });
+
+        let pipeline = renderer
+            .device
+            .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("Render Pipeline"),
+                layout: Some(&render_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &shade.shader,
+                    entry_point: "vs_main",
+                    buffers: &[],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &shade.shader,
+                    entry_point: "fs_main",
+                    targets: &[wgpu::ColorTargetState {
+                        format: renderer.config.format,
+                        blend: Some(wgpu::BlendState::REPLACE),
+                        write_mask: wgpu::ColorWrites::all(),
+                    }],
+                }),
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: Some(wgpu::Face::Back),
+                    // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
+                    polygon_mode: wgpu::PolygonMode::Fill,
+                    // Requires Features::DEPTH_CLAMPING
+                    clamp_depth: false,
+                    // Requires Features::CONSERVATIVE_RASTERIZATION
+                    conservative: false,
+                },
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+            });
+
+        Self {
+            pipeline,
+            vertex_count: form.item_count,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct Layer {
     clear_color: Option<wgpu::Color>,
@@ -95,7 +178,11 @@ impl Layer {
         self
     }
 
-    pub fn render(&mut self, renderer: &Renderer) -> Result<(), wgpu::SurfaceError> {
+    pub fn render(
+        &mut self,
+        renderer: &Renderer,
+        sketches: &[&Sketch],
+    ) -> Result<(), wgpu::SurfaceError> {
         let output = renderer.surface.get_current_texture()?;
         let view = output
             .texture
@@ -103,7 +190,7 @@ impl Layer {
         let mut encoder = renderer.get_encoder();
 
         {
-            let _render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[wgpu::RenderPassColorAttachment {
                     view: &view,
@@ -118,6 +205,10 @@ impl Layer {
                 }],
                 depth_stencil_attachment: None,
             });
+            for sketch in sketches {
+                render_pass.set_pipeline(&sketch.pipeline); // 2.
+                render_pass.draw(0..sketch.vertex_count, 0..1); // 3.
+            }
         }
 
         // submit will accept anything that implements IntoIter
