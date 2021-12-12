@@ -6,13 +6,14 @@ use winit::{
 
 use crate::renderer::Renderer;
 
-pub trait AppState: Default + Copy {
+pub trait AppState {
+    fn init() -> Self;
     fn input(&mut self, event: &WindowEvent, window: &Window) -> bool;
     fn update(&mut self, window: &Window);
 }
 
 pub trait AppView<State: AppState> {
-    fn init(state: &State) -> Self;
+    fn init(state: &State, renderer: &Renderer) -> Self;
     fn resize(&mut self, window: &Window);
     fn render(&mut self, renderer: &Renderer, state: &State) -> Result<(), wgpu::SurfaceError>;
 }
@@ -40,8 +41,8 @@ impl App {
 }
 
 pub fn run<S: AppState + 'static, V: AppView<S> + 'static>(mut app: App) {
-    let mut state = S::default();
-    let mut view = V::init(&state);
+    let mut state = S::init();
+    let mut view = V::init(&state, &app.renderer);
     app.event_loop
         .run(move |event, _, control_flow| match event {
             Event::WindowEvent {

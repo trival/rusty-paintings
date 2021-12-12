@@ -1,23 +1,20 @@
 use paintings::{
     app::{run, App, AppState, AppView},
-    renderer::Layer,
+    renderer::{Layer, Renderer},
 };
 use winit::window::{Window, WindowBuilder};
 
-#[derive(Clone, Copy)]
 struct State {
     color: wgpu::Color,
 }
 
-impl Default for State {
-    fn default() -> Self {
+impl AppState for State {
+    fn init() -> Self {
         Self {
             color: wgpu::Color::default(),
         }
     }
-}
 
-impl AppState for State {
     fn input(&mut self, event: &winit::event::WindowEvent, window: &Window) -> bool {
         if let winit::event::WindowEvent::CursorMoved { position, .. } = event {
             let s = window.inner_size();
@@ -41,7 +38,7 @@ struct View {
 }
 
 impl AppView<State> for View {
-    fn init(_state: &State) -> Self {
+    fn init(_state: &State, _renderer: &Renderer) -> Self {
         Self {
             layer: Layer::new(),
         }

@@ -1,16 +1,15 @@
 use paintings::{
     app::{run, App, AppState, AppView},
-    renderer::Layer,
+    renderer::{Layer, Renderer},
 };
 use winit::window::{Window, WindowBuilder};
 
-#[derive(Clone, Copy)]
 struct State {
     color: wgpu::Color,
 }
 
-impl Default for State {
-    fn default() -> Self {
+impl AppState for State {
+    fn init() -> Self {
         Self {
             color: wgpu::Color {
                 r: 0.1,
@@ -20,9 +19,7 @@ impl Default for State {
             },
         }
     }
-}
 
-impl AppState for State {
     fn input(&mut self, _event: &winit::event::WindowEvent, _window: &Window) -> bool {
         false
     }
@@ -35,7 +32,7 @@ struct View {
 }
 
 impl AppView<State> for View {
-    fn init(state: &State) -> Self {
+    fn init(state: &State, _renderer: &Renderer) -> Self {
         Self {
             layer: Layer::new().with_clear_color(Some(state.color)),
         }

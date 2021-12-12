@@ -80,7 +80,7 @@ pub struct Shade {
 }
 
 impl Shade {
-    fn new(renderer: &Renderer, shader_source: &'static str) -> Self {
+    pub fn new(renderer: &Renderer, shader_source: &'static str) -> Self {
         Self {
             shader: renderer
                 .device
@@ -93,7 +93,13 @@ impl Shade {
 }
 
 pub struct Form {
-    item_count: u32,
+    vertex_count: u32,
+}
+
+impl Form {
+    pub fn new(vertex_count: u32) -> Self {
+        Self { vertex_count }
+    }
 }
 
 pub struct Sketch {
@@ -102,7 +108,7 @@ pub struct Sketch {
 }
 
 impl Sketch {
-    fn new(renderer: &Renderer, shade: &Shade, form: &Form) -> Self {
+    pub fn new(renderer: &Renderer, shade: &Shade, form: &Form) -> Self {
         let render_pipeline_layout =
             renderer
                 .device
@@ -153,7 +159,7 @@ impl Sketch {
 
         Self {
             pipeline,
-            vertex_count: form.item_count,
+            vertex_count: form.vertex_count,
         }
     }
 }
@@ -181,7 +187,7 @@ impl Layer {
     pub fn render(
         &mut self,
         renderer: &Renderer,
-        sketches: &[&Sketch],
+        sketches: &[Sketch],
     ) -> Result<(), wgpu::SurfaceError> {
         let output = renderer.surface.get_current_texture()?;
         let view = output

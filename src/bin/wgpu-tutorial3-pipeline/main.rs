@@ -1,16 +1,15 @@
 use paintings::{
     app::{run, App, AppState, AppView},
-    renderer::Layer,
+    renderer::{Form, Layer, Renderer, Shade, Sketch},
 };
 use winit::window::{Window, WindowBuilder};
 
-#[derive(Clone, Copy)]
 struct State {
     color: wgpu::Color,
 }
 
-impl Default for State {
-    fn default() -> Self {
+impl AppState for State {
+    fn init() -> Self {
         Self {
             color: wgpu::Color {
                 r: 0.1,
@@ -20,9 +19,7 @@ impl Default for State {
             },
         }
     }
-}
 
-impl AppState for State {
     fn input(&mut self, _event: &winit::event::WindowEvent, _window: &Window) -> bool {
         false
     }
@@ -31,13 +28,19 @@ impl AppState for State {
 }
 
 struct View {
+    sketches: Vec<Sketch>,
     layer: Layer,
 }
 
 impl AppView<State> for View {
-    fn init(state: &State) -> Self {
+    fn init(state: &State, renderer: &Renderer) -> Self {
         Self {
             layer: Layer::new().with_clear_color(Some(state.color)),
+            sketches: vec![Sketch::new(
+                renderer,
+                &Shade::new(renderer, include_str!("shader.wgsl")),
+                &Form::new(3),
+            )],
         }
     }
 
@@ -46,7 +49,7 @@ impl AppView<State> for View {
         renderer: &paintings::renderer::Renderer,
         _state: &State,
     ) -> Result<(), wgpu::SurfaceError> {
-        self.layer.render(renderer, &[])
+        self.layer.render(renderer, &self.sketches)
     }
 
     fn resize(&mut self, _window: &Window) {}
