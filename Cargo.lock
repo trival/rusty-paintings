@@ -1133,6 +1133,7 @@ dependencies = [
 name = "paintings"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "env_logger",
  "glam",
  "image",
