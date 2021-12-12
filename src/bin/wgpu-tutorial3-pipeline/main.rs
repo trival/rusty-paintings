@@ -2,10 +2,19 @@ use paintings::{
     app::{run, App, AppState, AppView},
     renderer::{Form, Layer, Renderer, Shade, Sketch},
 };
-use winit::window::{Window, WindowBuilder};
+use winit::{
+    event::{ElementState, KeyboardInput, VirtualKeyCode},
+    window::{Window, WindowBuilder},
+};
+
+enum SelectedSketch {
+    One,
+    Two,
+}
 
 struct State {
     color: wgpu::Color,
+    selected: SelectedSketch,
 }
 
 impl AppState for State {
@@ -17,10 +26,27 @@ impl AppState for State {
                 b: 0.3,
                 a: 1.0,
             },
+            selected: SelectedSketch::One,
         }
     }
 
-    fn input(&mut self, _event: &winit::event::WindowEvent, _window: &Window) -> bool {
+    fn input(&mut self, event: &winit::event::WindowEvent, _window: &Window) -> bool {
+        if let winit::event::WindowEvent::KeyboardInput {
+            input:
+                KeyboardInput {
+                    state: ElementState::Pressed,
+                    virtual_keycode: Some(VirtualKeyCode::Space),
+                    ..
+                },
+            ..
+        } = event
+        {
+            self.selected = if let SelectedSketch::One = self.selected {
+                SelectedSketch::Two
+            } else {
+                SelectedSketch::One
+            }
+        }
         false
     }
 
@@ -28,18 +54,25 @@ impl AppState for State {
 }
 
 struct View {
-    sketches: Vec<Sketch>,
+    sketches2: Vec<Sketch>,
+    sketches1: Vec<Sketch>,
     layer: Layer,
 }
 
 impl AppView<State> for View {
     fn init(state: &State, renderer: &Renderer) -> Self {
+        let form = Form::new(3);
         Self {
             layer: Layer::new().with_clear_color(Some(state.color)),
-            sketches: vec![Sketch::new(
+            sketches1: vec![Sketch::new(
                 renderer,
-                &Shade::new(renderer, include_str!("shader.wgsl")),
-                &Form::new(3),
+                &Shade::new(renderer, include_str!("shader1.wgsl")),
+                &form,
+            )],
+            sketches2: vec![Sketch::new(
+                renderer,
+                &Shade::new(renderer, include_str!("shader2.wgsl")),
+                &form,
             )],
         }
     }
@@ -47,9 +80,15 @@ impl AppView<State> for View {
     fn render(
         &mut self,
         renderer: &paintings::renderer::Renderer,
-        _state: &State,
+        state: &State,
     ) -> Result<(), wgpu::SurfaceError> {
-        self.layer.render(renderer, &self.sketches)
+        self.layer.render(
+            renderer,
+            match state.selected {
+                SelectedSketch::One => &self.sketches1,
+                SelectedSketch::Two => &self.sketches2,
+            },
+        )
     }
 
     fn resize(&mut self, _window: &Window) {}
