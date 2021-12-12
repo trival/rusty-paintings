@@ -1,9 +1,6 @@
-use paintings::{
-    app::{run, App, AppState, AppView},
-    renderer::{Form, Layer, Renderer, Shade, Sketch},
-};
+use paintings::prelude::*;
 use winit::{
-    event::{ElementState, KeyboardInput, VirtualKeyCode},
+    event::*,
     window::{Window, WindowBuilder},
 };
 
@@ -30,8 +27,8 @@ impl AppState for State {
         }
     }
 
-    fn input(&mut self, event: &winit::event::WindowEvent, _window: &Window) -> bool {
-        if let winit::event::WindowEvent::KeyboardInput {
+    fn input(&mut self, event: &WindowEvent, _window: &Window) -> bool {
+        if let WindowEvent::KeyboardInput {
             input:
                 KeyboardInput {
                     state: ElementState::Pressed,

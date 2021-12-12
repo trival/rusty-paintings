@@ -1,7 +1,4 @@
-use paintings::{
-    app::{run, App, AppState, AppView},
-    renderer::{Layer, Renderer},
-};
+use paintings::prelude::*;
 use winit::window::{Window, WindowBuilder};
 
 struct State {
