@@ -2,55 +2,35 @@ use crate::prelude::Renderer;
 use bytemuck::Pod;
 use wgpu::util::DeviceExt;
 
-trait VertexData: Sized {
-    fn desc<'a>(attr_formats: &[wgpu::VertexFormat]) -> wgpu::VertexBufferLayout<'a> {
-        let (attribs, _) = attr_formats.into_iter().enumerate().fold(
-            (Vec::new(), 0 as wgpu::BufferAddress),
-            |(attribs, offset), (index, format)| {
-                attribs.push(wgpu::VertexAttribute {
-                    format: *format,
-                    shader_location: index as u32,
-                    offset,
-                });
-                (attribs, offset + wgpu::VertexFormat::size(format))
-            },
-        );
-
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: attribs.as_slice(),
-        }
-    }
+pub struct VertexBuffer {
+    pub vertices: wgpu::Buffer,
+    pub vertex_count: u32,
+    pub array_stride: u64,
+    pub attributes: Vec<wgpu::VertexAttribute>,
 }
 
-pub struct VertexBuffer<'a> {
-    vertices: wgpu::Buffer,
-    description: wgpu::VertexBufferLayout<'a>,
-    vertex_count: u32,
-}
-
-impl VertexBuffer<'_> {
-    fn new<T: VertexData + Pod>(
+impl VertexBuffer {
+    pub fn new<T: Pod>(
         renderer: &Renderer,
         vertex_data: &[T],
-        attr_formats: &[wgpu::VertexFormat],
+        attributes: &[wgpu::VertexAttribute],
     ) -> Self {
         Self {
             vertices: renderer
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: None,
+                    label: Some("vertex buffer label (TODO)"),
                     contents: bytemuck::cast_slice(vertex_data),
                     usage: wgpu::BufferUsages::VERTEX,
                 }),
-            description: T::desc(attr_formats),
             vertex_count: vertex_data.len() as u32,
+            array_stride: std::mem::size_of::<T>() as wgpu::BufferAddress,
+            attributes: attributes.to_vec(),
         }
     }
 }
 
-pub enum Form<'a> {
+pub enum Form {
     SimpleRange { vertex_count: u32 },
-    Vertices(VertexBuffer<'a>),
+    Vertices(VertexBuffer),
 }

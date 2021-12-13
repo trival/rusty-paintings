@@ -4,6 +4,7 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
+#[derive(Debug)]
 enum SelectedSketch {
     One,
     Two,
@@ -38,6 +39,7 @@ impl AppState for State {
             ..
         } = event
         {
+            println!("Space!! {:?}", self.selected);
             self.selected = if let SelectedSketch::One = self.selected {
                 SelectedSketch::Two
             } else {
@@ -51,41 +53,41 @@ impl AppState for State {
 }
 
 struct View {
-    sketches2: Vec<Sketch>,
-    sketches1: Vec<Sketch>,
-    layer: Layer,
+    layer_idx1: usize,
+    layer_idx2: usize,
 }
 
 impl AppView<State> for View {
-    fn init(state: &State, renderer: &Renderer) -> Self {
-        let form = Form::new(3);
+    fn init(renderer: &mut Renderer, state: &State) -> Self {
+        let form = renderer.make_form_simple_range(3);
+
+        let shade1 = renderer.make_shade(include_str!("shader1.wgsl"));
+        let sketch1 = renderer.make_sketch(shade1, form);
+
+        let layer_idx1 = renderer.make_layer(vec![sketch1]);
+        renderer
+            .layer_mut(layer_idx1)
+            .set_clear_color(Some(state.color));
+
+        let shade2 = renderer.make_shade(include_str!("shader2.wgsl"));
+        let sketch2 = renderer.make_sketch(shade2, form);
+
+        let layer_idx2 = renderer.make_layer(vec![sketch2]);
+        renderer
+            .layer_mut(layer_idx2)
+            .set_clear_color(Some(state.color));
+
         Self {
-            layer: Layer::new().with_clear_color(Some(state.color)),
-            sketches1: vec![Sketch::new(
-                renderer,
-                &Shade::new(renderer, include_str!("shader1.wgsl")),
-                &form,
-            )],
-            sketches2: vec![Sketch::new(
-                renderer,
-                &Shade::new(renderer, include_str!("shader2.wgsl")),
-                &form,
-            )],
+            layer_idx1,
+            layer_idx2,
         }
     }
 
-    fn render(
-        &mut self,
-        renderer: &paintings::renderer::Renderer,
-        state: &State,
-    ) -> Result<(), wgpu::SurfaceError> {
-        self.layer.render(
-            renderer,
-            match state.selected {
-                SelectedSketch::One => &self.sketches1,
-                SelectedSketch::Two => &self.sketches2,
-            },
-        )
+    fn render(&mut self, renderer: &mut Renderer, state: &State) -> Result<(), wgpu::SurfaceError> {
+        match state.selected {
+            SelectedSketch::One => renderer.render_layer(self.layer_idx1),
+            SelectedSketch::Two => renderer.render_layer(self.layer_idx2),
+        }
     }
 
     fn resize(&mut self, _window: &Window) {}

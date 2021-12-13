@@ -25,25 +25,27 @@ impl AppState for State {
 }
 
 struct View {
-    layer: Layer,
+    layer_idx: usize,
 }
 
 impl AppView<State> for View {
-    fn init(state: &State, _renderer: &Renderer) -> Self {
-        Self {
-            layer: Layer::new().with_clear_color(Some(state.color)),
-        }
-    }
-
-    fn render(
-        &mut self,
-        renderer: &paintings::renderer::Renderer,
-        _state: &State,
-    ) -> Result<(), wgpu::SurfaceError> {
-        self.layer.render(renderer, &[])
+    fn init(renderer: &mut Renderer, state: &State) -> Self {
+        let layer_idx = renderer.make_layer(vec![]);
+        renderer
+            .layer_mut(layer_idx)
+            .set_clear_color(Some(state.color));
+        Self { layer_idx }
     }
 
     fn resize(&mut self, _window: &Window) {}
+
+    fn render(
+        &mut self,
+        renderer: &mut Renderer,
+        _state: &State,
+    ) -> Result<(), wgpu::SurfaceError> {
+        renderer.render_layer(self.layer_idx)
+    }
 }
 
 fn main() {

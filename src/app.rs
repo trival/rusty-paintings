@@ -13,9 +13,9 @@ pub trait AppState {
 }
 
 pub trait AppView<State: AppState> {
-    fn init(state: &State, renderer: &Renderer) -> Self;
+    fn init(renderer: &mut Renderer, state: &State) -> Self;
     fn resize(&mut self, window: &Window);
-    fn render(&mut self, renderer: &Renderer, state: &State) -> Result<(), wgpu::SurfaceError>;
+    fn render(&mut self, renderer: &mut Renderer, state: &State) -> Result<(), wgpu::SurfaceError>;
 }
 
 pub struct App {
@@ -25,7 +25,7 @@ pub struct App {
 }
 
 impl App {
-    pub async fn new(window_builder: WindowBuilder) -> Self {
+    pub async fn new(window_builder: WindowBuilder) -> App {
         env_logger::init();
         let event_loop = EventLoop::new();
         let window = window_builder.build(&event_loop).unwrap();
@@ -42,7 +42,7 @@ impl App {
 
 pub fn run<S: AppState + 'static, V: AppView<S> + 'static>(mut app: App) {
     let mut state = S::init();
-    let mut view = V::init(&state, &app.renderer);
+    let mut view = V::init(&mut app.renderer, &state);
     app.event_loop
         .run(move |event, _, control_flow| match event {
             Event::WindowEvent {
@@ -74,7 +74,7 @@ pub fn run<S: AppState + 'static, V: AppView<S> + 'static>(mut app: App) {
 
             Event::RedrawRequested(_) => {
                 state.update(&app.window);
-                match view.render(&app.renderer, &state) {
+                match view.render(&mut app.renderer, &state) {
                     Ok(_) => {}
                     // Reconfigure the surface if lost
                     Err(wgpu::SurfaceError::Lost) => app.renderer.resize(&app.window),

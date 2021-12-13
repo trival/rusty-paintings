@@ -1,13 +1,16 @@
-use super::{sketch::Sketch, Renderer};
+use crate::prelude::*;
 
-#[derive(Debug, Clone, Copy)]
 pub struct Layer {
     clear_color: Option<wgpu::Color>,
+    sketch_indices: Vec<usize>,
 }
 
 impl Layer {
-    pub fn new() -> Self {
-        Layer { clear_color: None }
+    pub fn new(sketch_indices: Vec<usize>) -> Layer {
+        Layer {
+            clear_color: None,
+            sketch_indices,
+        }
     }
 
     pub fn with_clear_color(mut self, clear_color: Option<wgpu::Color>) -> Self {
@@ -20,16 +23,16 @@ impl Layer {
         self
     }
 
-    pub fn render(
-        &mut self,
-        renderer: &Renderer,
-        sketches: &[Sketch],
-    ) -> Result<(), wgpu::SurfaceError> {
+    pub fn render(&self, renderer: &Renderer) -> Result<(), wgpu::SurfaceError> {
         let output = renderer.surface.get_current_texture()?;
         let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder = renderer.get_encoder();
+        let mut encoder = renderer
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Render Encoder"),
+            });
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -47,9 +50,23 @@ impl Layer {
                 }],
                 depth_stencil_attachment: None,
             });
-            for sketch in sketches {
+            for sketch in self.sketch_indices.iter() {
+                let sketch = renderer.sketch(*sketch);
+                let form = renderer.form(sketch.form_idx);
                 render_pass.set_pipeline(&sketch.pipeline); // 2.
-                render_pass.draw(0..sketch.vertex_count, 0..1); // 3.
+                match form {
+                    crate::prelude::Form::SimpleRange { vertex_count } => {
+                        render_pass.draw(0..*vertex_count, 0..1); // 3.
+                    }
+                    crate::prelude::Form::Vertices(VertexBuffer {
+                        vertices,
+                        vertex_count,
+                        ..
+                    }) => {
+                        render_pass.set_vertex_buffer(0, vertices.slice(..));
+                        render_pass.draw(0..*vertex_count, 0..1);
+                    }
+                }
             }
         }
 
