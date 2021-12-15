@@ -5,8 +5,8 @@ use winit::window::{Window, WindowBuilder};
 #[repr(C)]
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
-    position: [f32; 3],
-    color: [f32; 3],
+    position: Vec3,
+    color: Vec3,
 }
 
 struct State {
@@ -25,16 +25,16 @@ impl AppState for State {
             },
             vertices: vec![
                 Vertex {
-                    position: [0.0, 0.5, 0.0],
-                    color: [1.0, 0.0, 0.0],
+                    position: vec3(0.0, 0.5, 0.0),
+                    color: vec3(1.0, 0.0, 0.0),
                 },
                 Vertex {
-                    position: [-0.5, -0.5, 0.0],
-                    color: [0.0, 1.0, 0.0],
+                    position: vec3(-0.5, -0.5, 0.0),
+                    color: vec3(0.0, 1.0, 0.0),
                 },
                 Vertex {
-                    position: [0.5, -0.5, 0.0],
-                    color: [0.0, 0.0, 1.0],
+                    position: vec3(0.5, -0.5, 0.0),
+                    color: vec3(0.0, 0.0, 1.0),
                 },
             ],
         }
