@@ -106,6 +106,22 @@ impl Renderer {
         self.forms.len() - 1
     }
 
+    pub fn make_form_indexed_vertices<T: Pod>(
+        &mut self,
+        vertex_data: &[T],
+        attributes: &[wgpu::VertexAttribute],
+        index_data: &[i32],
+    ) -> usize {
+        let form = Form::IndexedVertices(VertexIndexBuffer::new(
+            self,
+            vertex_data,
+            attributes,
+            index_data,
+        ));
+        self.forms.push(form);
+        self.forms.len() - 1
+    }
+
     pub fn make_shade(&mut self, shader_source: &'static str) -> usize {
         let shade = Shade::new(self, shader_source);
         self.shades.push(shade);

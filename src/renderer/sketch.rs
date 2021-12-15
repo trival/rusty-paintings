@@ -11,7 +11,7 @@ impl Sketch {
             .shades
             .get(shade_idx)
             .expect("shader index invalid");
-        let form = renderer.forms.get(form_idx).expect("form index invalid");
+        let form = renderer.form(form_idx);
 
         let render_pipeline_layout =
             renderer
@@ -63,15 +63,24 @@ impl Sketch {
                 })
         };
 
-        let pipeline = if let Form::Vertices(buf) = form {
-            let layout = wgpu::VertexBufferLayout {
-                array_stride: buf.array_stride,
-                step_mode: wgpu::VertexStepMode::Vertex,
-                attributes: buf.attributes.as_slice(),
-            };
-            create_pipeline(&[layout])
-        } else {
-            create_pipeline(&[])
+        let pipeline = match form {
+            Form::SimpleRange { .. } => create_pipeline(&[]),
+            Form::Vertices(buf) => {
+                let layout = wgpu::VertexBufferLayout {
+                    array_stride: buf.array_stride,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: buf.attributes.as_slice(),
+                };
+                create_pipeline(&[layout])
+            }
+            Form::IndexedVertices(buf) => {
+                let layout = wgpu::VertexBufferLayout {
+                    array_stride: buf.array_stride,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: buf.attributes.as_slice(),
+                };
+                create_pipeline(&[layout])
+            }
         };
 
         Self { pipeline, form_idx }

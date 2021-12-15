@@ -55,16 +55,26 @@ impl Layer {
                 let form = renderer.form(sketch.form_idx);
                 render_pass.set_pipeline(&sketch.pipeline); // 2.
                 match form {
-                    crate::prelude::Form::SimpleRange { vertex_count } => {
+                    Form::SimpleRange { vertex_count } => {
                         render_pass.draw(0..*vertex_count, 0..1); // 3.
                     }
-                    crate::prelude::Form::Vertices(VertexBuffer {
+                    Form::Vertices(VertexBuffer {
                         vertices,
                         vertex_count,
                         ..
                     }) => {
                         render_pass.set_vertex_buffer(0, vertices.slice(..));
                         render_pass.draw(0..*vertex_count, 0..1);
+                    }
+                    Form::IndexedVertices(VertexIndexBuffer {
+                        vertices,
+                        vertex_count,
+                        indices,
+                        ..
+                    }) => {
+                        render_pass.set_vertex_buffer(0, vertices.slice(..));
+                        render_pass.set_index_buffer(indices.slice(..), wgpu::IndexFormat::Uint32);
+                        render_pass.draw_indexed(0..*vertex_count, 0, 0..1);
                     }
                 }
             }
